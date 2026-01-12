@@ -1,11 +1,49 @@
 """Simple agent roster management - just a list of agent names."""
 
 import json
-import fcntl
 import time
 from pathlib import Path
+from typing import BinaryIO
 
 from ...logging_config import logger
+
+# Cross-platform file locking helpers. Use fcntl on POSIX, msvcrt on Windows.
+try:
+    import fcntl
+
+    def _lock_file(f: BinaryIO) -> None:
+        """Acquire a non-blocking exclusive lock on file-like object f."""
+        fcntl.flock(f.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+
+    def _unlock_file(f: BinaryIO) -> None:
+        """Release a lock on file-like object f."""
+        try:
+            fcntl.flock(f.fileno(), fcntl.LOCK_UN)
+        except Exception:
+            # Be defensive; unlocking failures are non-fatal here.
+            pass
+
+except ImportError:
+    # Windows fallback
+    import msvcrt
+
+    def _lock_file(f: BinaryIO) -> None:
+        """Acquire a non-blocking exclusive lock on file-like object f on Windows.
+
+        Raise BlockingIOError to mirror fcntl behaviour when the lock cannot be obtained.
+        """
+        try:
+            # Lock one byte at the start of the file. The file must be opened in binary mode.
+            msvcrt.locking(f.fileno(), msvcrt.LK_NBLCK, 1)
+        except OSError as exc:
+            # Translate to BlockingIOError so existing retry logic works.
+            raise BlockingIOError(str(exc)) from exc
+
+    def _unlock_file(f: BinaryIO) -> None:
+        try:
+            msvcrt.locking(f.fileno(), msvcrt.LK_UNLCK, 1)
+        except Exception:
+            pass
 
 
 class AgentRoster:
@@ -20,7 +58,8 @@ class AgentRoster:
         """Load agent names from roster.json."""
         if self._roster_path.exists():
             try:
-                with open(self._roster_path, 'r') as f:
+                # Open in text mode for reading as before
+                with open(self._roster_path, 'r', encoding='utf-8') as f:
                     data = json.load(f)
                     if isinstance(data, list):
                         self._agents = [str(name) for name in data]
@@ -40,14 +79,21 @@ class AgentRoster:
             try:
                 self._roster_path.parent.mkdir(parents=True, exist_ok=True)
 
-                # Open file and acquire exclusive lock
-                with open(self._roster_path, 'w') as f:
-                    fcntl.flock(f.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                # Open file in binary read/write (create if missing) so msvcrt.locking works on Windows.
+                # We'll write bytes after serializing the JSON string.
+                # Use 'w+b' to truncate the file and write from start.
+                with open(self._roster_path, 'w+b') as f:
+                    # Acquire an exclusive, non-blocking lock
+                    _lock_file(f)
                     try:
-                        json.dump(self._agents, f, indent=2)
+                        json_bytes = json.dumps(self._agents, indent=2).encode('utf-8')
+                        f.seek(0)
+                        f.write(json_bytes)
+                        f.truncate()
+                        f.flush()
                         return
                     finally:
-                        fcntl.flock(f.fileno(), fcntl.LOCK_UN)
+                        _unlock_file(f)
 
             except BlockingIOError:
                 # Lock is held by another process
