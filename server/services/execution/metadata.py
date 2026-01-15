@@ -50,7 +50,7 @@ class ExecutionAgentMetadataStore:
         """
         Get meta file path for an agent.
         """
-        return self._meta_dir / f"{_slugify(agent_name)}.json"
+        return self._meta_dir / f"{_slugify(agent_name)}-meta.json"
 
     def load_metadata(self, agent_name: str) -> Optional[Dict[str, Any]]:
         """
@@ -67,7 +67,7 @@ class ExecutionAgentMetadataStore:
                 logger.error(f"Failed to load metadata for {agent_name}: {e}")
                 return None
 
-    def save_metadata(self, agent_name: str, description: Optional[str] = None):
+    def save_metadata(self, agent_name: str, description: Optional[str] = None) -> None:
         """
         Save metadata for an agent.
         """
@@ -98,7 +98,16 @@ class ExecutionAgentMetadataStore:
             except Exception as e:
                 logger.error(f"Failed to save metadata for {agent_name}: {e}")
 
-    #TODO: Add method to clear metadata if user clicks clear button
+    def clear_all(self) -> None:
+        """
+        Clear all execution agent metadata files.
+        """
+        try:
+            for meta_file in self._meta_dir.glob("*-meta.json"):
+                meta_file.unlink()
+            logger.info("Cleared all execution agent metadata")
+        except Exception as e:
+            logger.error(f"Failed to clear execution metadata: {e}")
 
 
 _execution_agent_metadata = ExecutionAgentMetadataStore(_EXECUTION_META_DIR)
