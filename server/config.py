@@ -50,6 +50,9 @@ class Settings(BaseModel):
     server_host: str = Field(default=os.getenv("OPENPOKE_HOST", "0.0.0.0"))
     server_port: int = Field(default=_env_int("OPENPOKE_PORT", 8001))
 
+    # LRU Cache size
+    lru_cache_size: int = Field(default=5)
+
     # LLM model selection
     interaction_agent_model: str = Field(default="anthropic/claude-sonnet-4")
     execution_agent_model: str = Field(default="anthropic/claude-sonnet-4")

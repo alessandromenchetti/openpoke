@@ -69,6 +69,7 @@ class ExecutionBatchManager:
 
             if result.success:
                 await self._update_agent_metadata(agent_name)
+                await self._update_lru_cache(agent_name)
 
         except asyncio.TimeoutError:
             logger.error(f"[{agent_name}] Execution timed out after {self.timeout_seconds}s")
@@ -119,7 +120,7 @@ class ExecutionBatchManager:
             return batch_id
 
     # Update an agents metadata after execution completes
-    async def _update_agent_metadata(self, agent_name: str):
+    async def _update_agent_metadata(self, agent_name: str) -> None:
         """Update agent metadata after execution."""
         try:
             from ...services.execution import get_execution_agent_metadata
@@ -136,6 +137,20 @@ class ExecutionBatchManager:
 
         except Exception as e:
             logger.error(f"[{agent_name}] Failed to update metadata: {str(e)}")
+
+    # Update LRU cache after execution completes
+    async def _update_lru_cache(self, agent_name: str) -> None:
+        """Update LRU cache after execution."""
+        try:
+            from ...services.execution import get_execution_agent_lru_cache
+
+            lru_cache = get_execution_agent_lru_cache()
+            lru_cache.update(agent_name)
+
+            logger.debug(f"[{agent_name}] LRU cache updated")
+
+        except Exception as e:
+            logger.error(f"[{agent_name}] Failed to update LRU cache: {str(e)}")
 
     # Store execution result and send combined batch to interaction agent when complete
     async def _complete_execution(

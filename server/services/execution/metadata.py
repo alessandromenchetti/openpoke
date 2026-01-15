@@ -96,6 +96,10 @@ class ExecutionAgentMetadataStore:
         self._global_lock = threading.Lock()
         self._ensure_directory()
 
+    def meta_dir(self) -> Path:
+        """Get the metadata directory path."""
+        return self._meta_dir
+
     def _ensure_directory(self) -> None:
         try:
             self._meta_dir.mkdir(parents=True, exist_ok=True)

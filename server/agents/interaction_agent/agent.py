@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Dict, List
 
 from ...services.execution import get_agent_roster
+from ...services.execution import get_execution_agent_lru_cache
 
 _prompt_path = Path(__file__).parent / "system_prompt.md"
 SYSTEM_PROMPT = _prompt_path.read_text(encoding="utf-8").strip()
@@ -52,6 +53,25 @@ def _render_active_agents() -> str:
 
     rendered: List[str] = []
     for agent_name in agents:
+        name = escape(agent_name or "agent", quote=True)
+        rendered.append(f'<agent name="{name}" />')
+
+    return "\n".join(rendered)
+
+
+# Format the hot list of most recently used active execution agents into XML tags for LLM awareness
+def _render_hot_agents() -> str:
+    lru_cache = get_execution_agent_lru_cache()
+    lru_cache.load()
+    hot_agents = lru_cache.get_hot_list()
+
+    print(f"Hot agents: {hot_agents}")
+
+    if not hot_agents:
+        return "None"
+
+    rendered: List[str] = []
+    for agent_name in hot_agents:
         name = escape(agent_name or "agent", quote=True)
         rendered.append(f'<agent name="{name}" />')
 
