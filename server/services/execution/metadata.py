@@ -19,6 +19,72 @@ def _slugify(name: str) -> str:
     return slug or "agent"
 
 
+async def generate_agent_description(agent_name: str) -> Optional[str]:
+    """Generate a concise description of an agent based on its request history."""
+    from . import get_execution_agent_logs
+
+    logs = get_execution_agent_logs()
+    transcript = logs.load_transcript(agent_name)
+
+    if not transcript:
+        logger.debug(f"[{agent_name}] No transcript found for description generation.")
+        return None
+
+    lines = transcript.split("\n")
+    request_lines = [line for line in lines if "<agent_request" in line]
+
+    if not request_lines:
+        logger.debug(f"[{agent_name}] No agent requests found in transcript.")
+        return None
+
+    request_context = "\n".join(request_lines)
+
+    prompt = f"""Based on this agent's request history, generate a concise description that captures all entities (people, email addresses, topics) it has worked with.
+
+    Agent Name: {agent_name}
+    
+    Request History:
+    {request_context}
+    
+    Write 1-2 sentences in this format:
+    - List all people/email addresses mentioned
+    - Include key topics or task types (emails, reminders, scheduled tasks)
+    - Be specific and factual
+    
+    Examples:
+    - "Handles emails with Sarah Mitchell (sarah.m@example.com), Alex Chen, and Delta Airlines customer service. Topics include lunch coordination, flight confirmations, and baggage tracking."
+    - "Manages communication with Marcus Rivera (m.rivera@techcorp.com) and Elena Vasquez (elena.v@startup.io). Previously sent test messages, searched for project updates, and created reminder triggers."
+    - "Creates and manages reminder triggers for code execution checks. Set up scheduled notifications for 2-minute and 5-minute intervals."
+    
+    Description:"""
+
+    try:
+        from ...config import get_settings
+        from ...openrouter_client import request_chat_completion
+
+        settings = get_settings()
+
+        response = await request_chat_completion(
+            model=settings.summarizer_model,
+            messages=[{"role": "user", "content": prompt}],
+            system="You're an expert at summarizing agent activities into concise descriptions.",
+            api_key=settings.openrouter_api_key,
+        )
+
+        description = response.get("choices", [{}])[0].get("message", {}).get("content", "").strip()
+
+        if description and len(description) > 20:
+            logger.debug(f"[{agent_name}] Generated description: {description}")
+            return description
+
+        logger.warning(f"[{agent_name}] Description generation returned empty or too short result {agent_name}.")
+        return None
+
+    except Exception as e:
+        logger.error(f"[{agent_name}] Failed to generate description: {e}")
+        return None
+
+
 class ExecutionAgentMetadataStore:
     """
     Manages per-agent metadata in .json format.

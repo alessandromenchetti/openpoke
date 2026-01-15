@@ -122,13 +122,15 @@ class ExecutionBatchManager:
     async def _update_agent_metadata(self, agent_name: str):
         """Update agent metadata after execution."""
         try:
-            from ...services.execution import get_execution_agent_logs, get_execution_agent_metadata
-
-            logs = get_execution_agent_logs()
-            recent_transcript = logs.load_recent(agent_name)
+            from ...services.execution import get_execution_agent_metadata
+            from ...services.execution.metadata import generate_agent_description
 
             metadata_store = get_execution_agent_metadata()
-            metadata_store.save_metadata(agent_name)
+
+            logger.debug(f"[{agent_name}] Generating updated description")
+            description = await generate_agent_description(agent_name)
+
+            metadata_store.save_metadata(agent_name, description)
 
             logger.debug(f"[{agent_name}] Metadata updated after execution")
 

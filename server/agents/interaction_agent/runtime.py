@@ -44,7 +44,7 @@ class _LoopSummary:
 class InteractionAgentRuntime:
     """Manages the interaction agent's request processing."""
 
-    MAX_TOOL_ITERATIONS = 8
+    MAX_TOOL_ITERATIONS = 4
 
     # Initialize interaction agent runtime with settings and service dependencies
     def __init__(self) -> None:
@@ -89,7 +89,8 @@ class InteractionAgentRuntime:
             )
 
         except Exception as exc:
-            logger.error("Interaction agent failed", extra={"error": str(exc)})
+            # logger.error("Interaction agent failed", extra={"error": str(exc)})
+            logger.exception("Interaction agent failed")
             return InteractionResult(
                 success=False,
                 response="",
@@ -124,7 +125,8 @@ class InteractionAgentRuntime:
             )
 
         except Exception as exc:
-            logger.error("Interaction agent (agent message) failed", extra={"error": str(exc)})
+            # logger.error("Interaction agent (agent message) failed", extra={"error": str(exc)})
+            logger.exception("Interaction agent (agent message) failed")
             return InteractionResult(
                 success=False,
                 response="",
