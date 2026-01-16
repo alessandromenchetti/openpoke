@@ -29,6 +29,7 @@ def clear_history() -> ChatHistoryClearResponse:
         get_agent_roster,
         get_execution_agent_metadata,
         get_execution_agent_lru_cache,
+        # get_agent_semantic_search
     )
 
     # Clear conversation log
@@ -54,6 +55,10 @@ def clear_history() -> ChatHistoryClearResponse:
     # Clear LRU cache
     lru_cache = get_execution_agent_lru_cache()
     lru_cache.clear()
+
+    # Clear FAISS index
+    semantic_search = get_agent_semantic_search()
+    semantic_search.clear()
 
     return ChatHistoryClearResponse()
 

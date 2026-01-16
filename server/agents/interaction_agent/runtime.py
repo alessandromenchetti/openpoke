@@ -48,6 +48,8 @@ class InteractionAgentRuntime:
 
     # Initialize interaction agent runtime with settings and service dependencies
     def __init__(self) -> None:
+        self._current_user_query: Optional[str] = None
+
         settings = get_settings()
         self.api_key = settings.openrouter_api_key
         self.model = settings.interaction_agent_model
@@ -66,12 +68,17 @@ class InteractionAgentRuntime:
         """Handle a user-authored message."""
 
         try:
+            self._current_user_query = user_message
+
             transcript_before = self._load_conversation_transcript()
             self.conversation_log.record_user_message(user_message)
 
             system_prompt = build_system_prompt()
             messages = prepare_message_with_history(
-                user_message, transcript_before, message_type="user"
+                user_message,
+                transcript_before,
+                message_type="user",
+                user_query=self._current_user_query,
             )
 
             logger.info("Processing user message through interaction agent")
@@ -107,7 +114,10 @@ class InteractionAgentRuntime:
 
             system_prompt = build_system_prompt()
             messages = prepare_message_with_history(
-                agent_message, transcript_before, message_type="agent"
+                agent_message,
+                transcript_before,
+                message_type="agent",
+                user_query=self._current_user_query,
             )
 
             logger.info("Processing execution agent results")

@@ -70,6 +70,7 @@ class ExecutionBatchManager:
             if result.success:
                 await self._update_agent_metadata(agent_name)
                 await self._update_lru_cache(agent_name)
+                await self._update_faiss_index(agent_name)
 
         except asyncio.TimeoutError:
             logger.error(f"[{agent_name}] Execution timed out after {self.timeout_seconds}s")
@@ -151,6 +152,20 @@ class ExecutionBatchManager:
 
         except Exception as e:
             logger.error(f"[{agent_name}] Failed to update LRU cache: {str(e)}")
+
+    # Update faiss index after execution completes
+    async def _update_faiss_index(self, agent_name: str) -> None:
+        """Update FAISS index after execution."""
+        try:
+            from ...services.execution import get_agent_semantic_search
+
+            semantic_search = get_agent_semantic_search()
+            semantic_search.add_agent_to_index(agent_name)
+
+            logger.debug(f"[{agent_name}] FAISS index updated")
+
+        except Exception as e:
+            logger.error(f"[{agent_name}] Failed to update FAISS index: {str(e)}")
 
     # Store execution result and send combined batch to interaction agent when complete
     async def _complete_execution(
