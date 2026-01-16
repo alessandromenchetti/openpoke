@@ -18,7 +18,7 @@ def build_system_prompt() -> str:
 
 
 # Build structured message with conversation history, active agents, and current turn
-def prepare_message_with_history(
+async def prepare_message_with_history(
     latest_text: str,
     transcript: str,
     message_type: str = "user",
@@ -28,9 +28,8 @@ def prepare_message_with_history(
     sections: List[str] = []
 
     sections.append(_render_conversation_history(transcript))
-    sections.append(f"<active_agents>\n{_render_active_agents()}\n</active_agents>")
-    print(f"prepare_message_with_history() called via: {message_type}\nUser query: {user_query}\n")
-    _render_active_agent_shortlist(user_query)
+    active_agent_shortlist = await _render_active_agent_shortlist(user_query, transcript)
+    sections.append(active_agent_shortlist)
     sections.append(_render_current_turn(latest_text, message_type))
 
     content = "\n\n".join(sections)
@@ -46,6 +45,7 @@ def _render_conversation_history(transcript: str) -> str:
 
 
 # Format currently active execution agents into XML tags for LLM awareness
+# NOT USED ANYMORE - kept for reference
 def _render_active_agents() -> str:
     roster = get_agent_roster()
     roster.load()
@@ -63,9 +63,9 @@ def _render_active_agents() -> str:
 
 
 # Render both hot and relevant agents for inclusion in the prompt
-def _render_active_agent_shortlist(user_query: Optional[str]) -> str:
+async def _render_active_agent_shortlist(user_query: Optional[str], conversation_history: str) -> str:
     hot_list = _get_hot_agents()
-    relevant_agents = _get_relevant_agents(user_query)
+    relevant_agents = await _get_relevant_agents(user_query, conversation_history)
 
     sections: List[str] = []
 
@@ -81,7 +81,7 @@ def _render_active_agent_shortlist(user_query: Optional[str]) -> str:
         unique_relevant = [name for name in relevant_agents if name not in hot_list]
         if unique_relevant:
             rendered_relevant = [
-                f'<agent name="{escape(name, quote=True)}" />' for name in unique_relevant[:5]
+                f'<agent name="{escape(name, quote=True)}" />' for name in unique_relevant
             ]
             sections.append(
                 "<relevant_agents>\n" + "\n".join(rendered_relevant) + "\n</relevant_agents>"
@@ -90,26 +90,36 @@ def _render_active_agent_shortlist(user_query: Optional[str]) -> str:
     if not sections:
         return "<active_agents>\nNone\n</active_agents>"
 
-    print(f"Rendered active agent shortlist:\n{sections}\n")
+    shortlist = "\n\n".join(sections)
 
-    return "\n\n".join(sections)
+    print(f"Rendered active agent shortlist:\n{shortlist}\n")
+
+    return shortlist
+
 
 # Get the hot list of most recently used active execution agents
 def _get_hot_agents() -> List[str]:
     lru_cache = get_execution_agent_lru_cache()
     results = lru_cache.get_hot_list()
-    print(f"Hot agents from LRU cache:\n{results}\n")
     return results
 
 
 # Get the most semantically relevant agents based on user query
-def _get_relevant_agents(user_query: Optional[str]) -> List[str]:
+async def _get_relevant_agents(user_query: Optional[str], conversation_history: str) -> List[str]:
     if not user_query:
         return []
 
+    from ...services.execution.semantic_search import decompose_user_query
+    from ...config import get_settings
+    settings = get_settings()
+
+    queries = await decompose_user_query(user_query, conversation_history)
+
     agent_semantic_search = get_agent_semantic_search()
-    results = agent_semantic_search.semantic_search(user_query, top_k=10)
-    print(f"Relevant agents from semantic search:\n{results}\n")
+    results = agent_semantic_search.semantic_search(
+        queries, top_k=settings.semantic_search_top_k, boost_weight=settings.semantic_search_keyword_boost_weight
+    )
+
     return [name for name, score in results]
 
 

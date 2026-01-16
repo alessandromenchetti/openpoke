@@ -67,10 +67,9 @@ class ExecutionBatchManager:
             status = "SUCCESS" if result.success else "FAILED"
             logger.info(f"[{agent_name}] Execution finished: {status}")
 
-            if result.success:
-                await self._update_agent_metadata(agent_name)
-                await self._update_lru_cache(agent_name)
-                await self._update_faiss_index(agent_name)
+            await self._update_agent_metadata(agent_name)
+            await self._update_lru_cache(agent_name)
+            await self._update_faiss_index(agent_name)
 
         except asyncio.TimeoutError:
             logger.error(f"[{agent_name}] Execution timed out after {self.timeout_seconds}s")

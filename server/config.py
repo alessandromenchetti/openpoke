@@ -51,7 +51,11 @@ class Settings(BaseModel):
     server_port: int = Field(default=_env_int("OPENPOKE_PORT", 8001))
 
     # LRU Cache size
-    lru_cache_size: int = Field(default=5)
+    lru_cache_size: int = Field(default=10)
+
+    # Semantic search settings
+    semantic_search_top_k: int = Field(default=15)
+    semantic_search_keyword_boost_weight: float = Field(default=0.2)
 
     # LLM model selection
     interaction_agent_model: str = Field(default="anthropic/claude-sonnet-4")

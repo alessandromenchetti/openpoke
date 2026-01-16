@@ -74,7 +74,7 @@ class InteractionAgentRuntime:
             self.conversation_log.record_user_message(user_message)
 
             system_prompt = build_system_prompt()
-            messages = prepare_message_with_history(
+            messages = await prepare_message_with_history(
                 user_message,
                 transcript_before,
                 message_type="user",
@@ -113,7 +113,7 @@ class InteractionAgentRuntime:
             self.conversation_log.record_agent_message(agent_message)
 
             system_prompt = build_system_prompt()
-            messages = prepare_message_with_history(
+            messages = await prepare_message_with_history(
                 agent_message,
                 transcript_before,
                 message_type="agent",
