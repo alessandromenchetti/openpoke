@@ -50,12 +50,19 @@ class Settings(BaseModel):
     server_host: str = Field(default=os.getenv("OPENPOKE_HOST", "0.0.0.0"))
     server_port: int = Field(default=_env_int("OPENPOKE_PORT", 8001))
 
+    # LRU Cache size
+    lru_cache_size: int = Field(default=10)
+
+    # Semantic search settings
+    semantic_search_top_k: int = Field(default=15)
+    semantic_search_keyword_boost_weight: float = Field(default=0.2)
+
     # LLM model selection
-    interaction_agent_model: str = Field(default="openai/gpt-oss-120b:free")
-    execution_agent_model: str = Field(default="openai/gpt-oss-120b:free")
-    execution_agent_search_model: str = Field(default="openai/gpt-oss-120b:free")
-    summarizer_model: str = Field(default="openai/gpt-oss-120b:free")
-    email_classifier_model: str = Field(default="openai/gpt-oss-120b:free")
+    interaction_agent_model: str = Field(default="anthropic/claude-sonnet-4")
+    execution_agent_model: str = Field(default="anthropic/claude-sonnet-4")
+    execution_agent_search_model: str = Field(default="anthropic/claude-sonnet-4")
+    summarizer_model: str = Field(default="anthropic/claude-sonnet-4")
+    email_classifier_model: str = Field(default="anthropic/claude-sonnet-4")
 
     # Credentials / integrations
     openrouter_api_key: Optional[str] = Field(default=os.getenv("OPENROUTER_API_KEY"))

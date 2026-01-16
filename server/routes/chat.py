@@ -24,7 +24,13 @@ def chat_history() -> ChatHistoryResponse:
 
 @router.delete("/history", response_model=ChatHistoryClearResponse)
 def clear_history() -> ChatHistoryClearResponse:
-    from ..services import get_execution_agent_logs, get_agent_roster
+    from ..services import (
+        get_execution_agent_logs,
+        get_agent_roster,
+        get_execution_agent_metadata,
+        get_execution_agent_lru_cache,
+        # get_agent_semantic_search
+    )
 
     # Clear conversation log
     log = get_conversation_log()
@@ -41,6 +47,18 @@ def clear_history() -> ChatHistoryClearResponse:
     # Clear stored triggers
     trigger_service = get_trigger_service()
     trigger_service.clear_all()
+
+    # Clear execution agent metadata
+    metadata_store = get_execution_agent_metadata()
+    metadata_store.clear_all()
+
+    # Clear LRU cache
+    lru_cache = get_execution_agent_lru_cache()
+    lru_cache.clear()
+
+    # Clear FAISS index
+    semantic_search = get_agent_semantic_search()
+    semantic_search.clear()
 
     return ChatHistoryClearResponse()
 

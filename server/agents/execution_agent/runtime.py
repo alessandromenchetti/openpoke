@@ -25,7 +25,7 @@ class ExecutionResult:
 class ExecutionAgentRuntime:
     """Manages the execution of a single agent request."""
 
-    MAX_TOOL_ITERATIONS = 8
+    MAX_TOOL_ITERATIONS = 4
 
     # Initialize execution agent runtime with settings, tools, and agent instance
     def __init__(self, agent_name: str):
