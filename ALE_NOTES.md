@@ -29,3 +29,4 @@ Thought process so far for solving the execution agent overload issue:
   - this seems to work great so far in testing
 - I currently have hot list size set to 10 agents, and top k for semantic search set to 15 agents
   - I think this is a good size that still reduces prompt bloat, while providing enough relevant agents for the interaction agent to choose from, assuming the number of agents would be 100s to 1000s for a user
+- going to skip implementing setting that allows semantic search to be run over decriptions for now, moving on to implementing a new feature
