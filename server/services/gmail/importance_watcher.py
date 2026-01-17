@@ -89,7 +89,12 @@ class ImportantEmailWatcher:
         try:
             while self._running:
                 try:
-                    await self._poll_once()
+                    with bind_trace(
+                            root_source="email_monitor",
+                            component="importance_watcher",
+                            purpose="importance_watcher.classify_email_importance"
+                    ):
+                        await self._poll_once()
                 except Exception as exc:  # pragma: no cover - defensive
                     logger.exception("Important email watcher poll failed", extra={"error": str(exc)})
                 await asyncio.sleep(self._poll_interval)
@@ -144,6 +149,7 @@ class ImportantEmailWatcher:
             return
 
         if first_poll:
+            logger.info("Important email watcher starting initial warmup")
             self._seen_store.mark_seen(email.id for email in processed_emails)
             logger.info(
                 "Important email watcher completed initial warmup",
@@ -199,12 +205,7 @@ class ImportantEmailWatcher:
         processed_ids: List[str] = [email.id for email in aged_emails]
 
         for email in eligible_emails:
-            with bind_trace(
-                root_source="email_monitor",
-                component="importance_watcher",
-                purpose="importance_watcher.classify_email_importance"
-            ):
-                summary = await classify_email_importance(email)
+            summary = await classify_email_importance(email)
 
             processed_ids.append(email.id)
             if not summary:
