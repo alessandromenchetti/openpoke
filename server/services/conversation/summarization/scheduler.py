@@ -4,6 +4,7 @@ import asyncio
 
 from ....logging_config import logger
 from .summarizer import summarize_conversation
+from ...telemetry.trace_context import bind_trace
 
 _pending = False
 _running = False
@@ -33,7 +34,13 @@ async def _run_worker() -> None:
         while _pending:
             _pending = False
             try:
-                await summarize_conversation()
+                with bind_trace(
+                        root_source="summarizer",
+                        component="conversation_summarizer",
+                        purpose="conversation.summarize",
+                ):
+                    await summarize_conversation()
+
             except Exception as exc:  # pragma: no cover - defensive
                 logger.error(
                     "summarization worker failed",

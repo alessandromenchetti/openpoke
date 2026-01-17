@@ -13,6 +13,7 @@ from .seen_store import GmailSeenStore
 from .importance_classifier import classify_email_importance
 from ...logging_config import logger
 from ...utils.timezones import convert_to_user_timezone
+from ...services.telemetry.trace_context import bind_trace
 
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
@@ -157,7 +158,7 @@ class ImportantEmailWatcher:
 
         if not unseen_emails:
             logger.info(
-                "Important email watcher check complete",
+                "Important email watcher check complete - no unseen emails",
                 extra={"emails_reviewed": 0, "surfaced": 0},
             )
             self._complete_poll(user_now)
@@ -184,7 +185,7 @@ class ImportantEmailWatcher:
         if not eligible_emails and aged_emails:
             self._seen_store.mark_seen(email.id for email in aged_emails)
             logger.info(
-                "Important email watcher check complete",
+                "Important email watcher check complete - no emails from within last minute",
                 extra={
                     "emails_reviewed": len(unseen_emails),
                     "surfaced": 0,
@@ -198,7 +199,13 @@ class ImportantEmailWatcher:
         processed_ids: List[str] = [email.id for email in aged_emails]
 
         for email in eligible_emails:
-            summary = await classify_email_importance(email)
+            with bind_trace(
+                root_source="email_monitor",
+                component="importance_watcher",
+                purpose="importance_watcher.classify_email_importance"
+            ):
+                summary = await classify_email_importance(email)
+
             processed_ids.append(email.id)
             if not summary:
                 continue
