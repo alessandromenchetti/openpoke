@@ -1,0 +1,59 @@
+2026-01-17 12:25:01 - openpoke.server - INFO - Getting active agent shortlist for query: Can you please search for the latest email from a.menchetti8@gmail.com
+
+2026-01-17 12:25:01 - openpoke.server - INFO - Hot list: [
+'Stand Up Reminder',
+'Alessandro Email Search',
+'Alessandro Email Watcher',
+'Active Triggers List',
+'Email to Ryan Collins',
+'Isabella Test Email',
+'Chicken Reminder',
+'General Email Search',
+'Catherine Bertucci Email Search',
+'Catherine Bertucci Email'
+]
+
+Batches: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 1/1 [00:00<00:00,  6.54it/s]
+2026-01-17 12:25:02 - openpoke.server - INFO - Semantic search results: [
+('General Email Search', 0.9843993425369263),
+('Sandy Email Search', 0.9491427183151245),
+('Alessandro Email Search', 0.936127507686615),
+('Margaret Email Search', 0.9163917541503906),
+('Bob Email Search', 0.9126850605010987),
+('George Email Search', 0.9015945434570313),
+('Tony Email Search', 0.8906653165817261),
+('Jimenez Email Search', 0.8892689287662506),
+('Vince Email Search', 0.8694614112377167),
+('Catherine Bertucci Email Search', 0.8565530717372895),
+('Alice Email Search', 0.7302998542785645),
+('Alessandro Email Watcher', 0.6520039558410644),
+('Catherine Bertucci Email', 0.6071505069732666),
+('Isabella Test Email', 0.5559349477291107),
+('Air Canada Baggage Email', 0.5415665030479431)
+]
+
+2026-01-17 12:25:02 - openpoke.server - INFO - Rendered active agent shortlist after dedupe:
+<recently_used_agents>
+<agent name="Stand Up Reminder" />
+<agent name="Alessandro Email Search" />
+<agent name="Alessandro Email Watcher" />
+<agent name="Active Triggers List" />
+<agent name="Email to Ryan Collins" />
+<agent name="Isabella Test Email" />
+<agent name="Chicken Reminder" />
+<agent name="General Email Search" />
+<agent name="Catherine Bertucci Email Search" />
+<agent name="Catherine Bertucci Email" />
+</recently_used_agents>
+
+<relevant_agents>
+<agent name="Sandy Email Search" />
+<agent name="Margaret Email Search" />
+<agent name="Bob Email Search" />
+<agent name="George Email Search" />
+<agent name="Tony Email Search" />
+<agent name="Jimenez Email Search" />
+<agent name="Vince Email Search" />
+<agent name="Alice Email Search" />
+<agent name="Air Canada Baggage Email" />
+</relevant_agents>

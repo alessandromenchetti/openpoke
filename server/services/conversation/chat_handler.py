@@ -8,6 +8,7 @@ from ...agents.interaction_agent.runtime import InteractionAgentRuntime
 from ...logging_config import logger
 from ...models import ChatMessage, ChatRequest
 from ...utils import error_response
+from ..telemetry import bind_trace
 
 
 # Extract the most recent user message from the chat request payload
@@ -44,6 +45,12 @@ async def handle_chat_request(payload: ChatRequest) -> Union[PlainTextResponse, 
         except Exception as exc:  # pragma: no cover - defensive
             logger.error("chat task failed", extra={"error": str(exc)})
 
-    asyncio.create_task(_run_interaction())
+    with bind_trace(
+            root_source="user_request",
+            component="interaction_agent",
+            purpose="interaction.loop",
+    ) as trace_id:
+        logger.info("starting interaction loop", extra={"trace_id": trace_id})
+        asyncio.create_task(_run_interaction())
 
     return PlainTextResponse("", status_code=status.HTTP_202_ACCEPTED)

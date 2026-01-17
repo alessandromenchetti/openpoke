@@ -10,6 +10,7 @@ from ..agents.execution_agent.batch_manager import ExecutionBatchManager
 from ..agents.execution_agent.runtime import ExecutionResult
 from ..logging_config import logger
 from .triggers import TriggerRecord, get_trigger_service
+from ..services.telemetry.trace_context import bind_trace
 
 
 UTC = timezone.utc
@@ -79,26 +80,32 @@ class TriggerScheduler:
 
     async def _execute_trigger(self, trigger: TriggerRecord) -> None:
         try:
-            fired_at = _utc_now()
-            instructions = self._format_instructions(trigger, fired_at)
-            logger.info(
-                "Dispatching trigger",
-                extra={
-                    "trigger_id": trigger.id,
-                    "agent": trigger.agent_name,
-                    "scheduled_for": trigger.next_trigger,
-                },
-            )
-            execution_manager = ExecutionBatchManager()
-            result = await execution_manager.execute_agent(
-                trigger.agent_name,
-                instructions,
-            )
-            if result.success:
-                self._handle_success(trigger, fired_at)
-            else:
-                error_text = result.error or result.response
-                self._handle_failure(trigger, fired_at, error_text)
+            with bind_trace(
+                    root_source="trigger",
+                    component="trigger_scheduler",
+                    purpose="trigger.execute",
+                    agent_name=trigger.agent_name,
+            ):
+                fired_at = _utc_now()
+                instructions = self._format_instructions(trigger, fired_at)
+
+                logger.info(
+                    "Dispatching trigger",
+                    extra={
+                        "trigger_id": trigger.id,
+                        "agent": trigger.agent_name,
+                        "scheduled_for": trigger.next_trigger,
+                    },
+                )
+
+                execution_manager = ExecutionBatchManager()
+                result = await execution_manager.execute_agent(trigger.agent_name, instructions)
+
+                if result.success:
+                    self._handle_success(trigger, fired_at)
+                else:
+                    error_text = result.error or result.response
+                    self._handle_failure(trigger, fired_at, error_text)
         except Exception as exc:  # pragma: no cover - defensive
             self._handle_failure(trigger, _utc_now(), str(exc))
             logger.exception(

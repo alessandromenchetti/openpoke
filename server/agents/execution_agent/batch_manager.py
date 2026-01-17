@@ -10,6 +10,7 @@ from typing import Dict, List, Optional
 
 from .runtime import ExecutionAgentRuntime, ExecutionResult
 from ...logging_config import logger
+from ...services.telemetry.trace_context import bind_span_context
 
 
 @dataclass
@@ -60,10 +61,17 @@ class ExecutionBatchManager:
         try:
             logger.info(f"[{agent_name}] Execution started")
             runtime = ExecutionAgentRuntime(agent_name=agent_name)
-            result = await asyncio.wait_for(
-                runtime.execute(instructions),
-                timeout=self.timeout_seconds,
-            )
+
+            with bind_span_context(
+                    component="execution_agent",
+                    agent_name=agent_name,
+                    purpose="execution_agent.loop",
+            ):
+                result = await asyncio.wait_for(
+                    runtime.execute(instructions),
+                    timeout=self.timeout_seconds,
+                )
+
             status = "SUCCESS" if result.success else "FAILED"
             logger.info(f"[{agent_name}] Execution finished: {status}")
 
@@ -129,7 +137,13 @@ class ExecutionBatchManager:
             metadata_store = get_execution_agent_metadata()
 
             logger.debug(f"[{agent_name}] Generating updated description")
-            description = await generate_agent_description(agent_name)
+
+            with bind_span_context(
+                    component="execution_agent",
+                    agent_name=agent_name,
+                    purpose="execution_agent.metadata.generate_description",
+            ):
+                description = await generate_agent_description(agent_name)
 
             metadata_store.save_metadata(agent_name, description)
 
