@@ -92,8 +92,6 @@ async def _render_active_agent_shortlist(user_query: Optional[str], conversation
 
     shortlist = "\n\n".join(sections)
 
-    print(f"Rendered active agent shortlist:\n{shortlist}\n")
-
     return shortlist
 
 
