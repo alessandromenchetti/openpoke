@@ -109,11 +109,17 @@ async def _get_relevant_agents(user_query: Optional[str], conversation_history: 
     if not user_query:
         return []
 
-    from ...services.execution.semantic_search import decompose_user_query
     from ...config import get_settings
+    from ...services.execution.semantic_search import decompose_user_query
+    from ...services.telemetry.trace_context import bind_span_context
+
     settings = get_settings()
 
-    queries = await decompose_user_query(user_query, conversation_history)
+    with bind_span_context(
+            component="interaction_agent",
+            purpose="interaction_agent.query_decomposition",
+    ):
+        queries = await decompose_user_query(user_query, conversation_history)
 
     agent_semantic_search = get_agent_semantic_search()
     results = agent_semantic_search.semantic_search(

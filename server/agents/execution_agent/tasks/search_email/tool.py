@@ -16,6 +16,7 @@ from server.services.gmail import (
     get_active_gmail_user_id,
     parse_gmail_fetch_response,
 )
+from server.services.telemetry import bind_span_context
 from .gmail_internal import GMAIL_FETCH_EMAILS_SCHEMA
 from .schemas import (
     GmailSearchEmail,
@@ -147,13 +148,17 @@ async def _run_email_search(
         )
         
         # Get LLM response
-        response = await request_chat_completion(
-            model=model,
-            messages=messages,
-            system=get_system_prompt(),
-            api_key=api_key,
-            tools=[GMAIL_FETCH_EMAILS_SCHEMA, _COMPLETION_TOOL_SCHEMA],
-        )
+        with bind_span_context(
+                component="execution_agent",
+                purpose="tool.task_email_search",
+        ):
+            response = await request_chat_completion(
+                model=model,
+                messages=messages,
+                system=get_system_prompt(),
+                api_key=api_key,
+                tools=[GMAIL_FETCH_EMAILS_SCHEMA, _COMPLETION_TOOL_SCHEMA],
+            )
         
         # Process assistant response
         assistant = _extract_assistant_message(response)

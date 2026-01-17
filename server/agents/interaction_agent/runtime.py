@@ -10,6 +10,7 @@ from ...config import get_settings
 from ...services.conversation import get_conversation_log, get_working_memory_log
 from ...openrouter_client import request_chat_completion
 from ...logging_config import logger
+from ...services.telemetry import bind_span_context
 
 
 @dataclass
@@ -82,7 +83,12 @@ class InteractionAgentRuntime:
             )
 
             logger.info("Processing user message through interaction agent")
-            summary = await self._run_interaction_loop(system_prompt, messages)
+
+            with bind_span_context(
+                    component="interaction_agent",
+                    purpose="interaction_agent.loop",
+            ):
+                summary = await self._run_interaction_loop(system_prompt, messages)
 
             final_response = self._finalize_response(summary)
 
@@ -117,11 +123,15 @@ class InteractionAgentRuntime:
                 agent_message,
                 transcript_before,
                 message_type="agent",
-                user_query=self._current_user_query,
             )
 
             logger.info("Processing execution agent results")
-            summary = await self._run_interaction_loop(system_prompt, messages)
+
+            with bind_span_context(
+                    component="interaction_agent",
+                    purpose="interaction_agent.post_exec",
+            ):
+                summary = await self._run_interaction_loop(system_prompt, messages)
 
             final_response = self._finalize_response(summary)
 

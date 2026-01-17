@@ -1,11 +1,15 @@
 from __future__ import annotations
 
 import json
+import time
+import uuid
 from typing import Any, Dict, List, Optional
 
 import httpx
 
 from ..config import get_settings
+from ..services.telemetry.trace_context import current_span_id_var, get_trace_context
+from ..services.telemetry.llm_usage import record_llm_usage
 
 OpenRouterBaseURL = "https://openrouter.ai/api/v1"
 
@@ -61,31 +65,99 @@ async def request_chat_completion(
         "model": model,
         "messages": _build_messages(messages, system),
         "stream": False,
+        "usage": {"include": True},
     }
     if tools:
         payload["tools"] = tools
 
     url = f"{base_url.rstrip('/')}/chat/completions"
 
-    async with httpx.AsyncClient() as client:
-        try:
+    ctx = get_trace_context()
+    parent_span_id = current_span_id_var.get()
+    span_id = uuid.uuid4().hex[:16]
+    current_span_id_var.set(span_id)
+
+    t0 = time.monotonic()
+
+    try:
+        async with httpx.AsyncClient() as client:
             response = await client.post(
                 url,
                 headers=_headers(api_key=api_key),
                 json=payload,
-                timeout=60.0,  # Set reasonable timeout instead of None
+                timeout=60.0,
             )
-            try:
-                response.raise_for_status()
-            except httpx.HTTPStatusError as exc:
-                _handle_response_error(exc)
-            return response.json()
-        except httpx.HTTPStatusError as exc:  # pragma: no cover - handled above
-            _handle_response_error(exc)
-        except httpx.HTTPError as exc:
-            raise OpenRouterError(f"OpenRouter request failed: {exc}") from exc
+            response.raise_for_status()
 
-    raise OpenRouterError("OpenRouter request failed: unknown error")
+            data = response.json()
+            duration_ms = int((time.monotonic() - t0) * 1000)
+
+            usage = (data or {}).get("usage") or {}
+            record_llm_usage(
+                {
+                    "trace_id": ctx.trace_id,
+                    "root_source": ctx.root_source,
+                    "component": ctx.component,
+                    "agent_name": ctx.agent_name,
+                    "purpose": ctx.purpose,
+                    "span_id": span_id,
+                    "parent_span_id": parent_span_id,
+                    "model": model,
+                    "duration_ms": duration_ms,
+                    "status": "ok",
+                    "http_status": response.status_code,
+                    "prompt_tokens": usage.get("prompt_tokens"),
+                    "completion_tokens": usage.get("completion_tokens"),
+                    "total_tokens": usage.get("total_tokens"),
+                    "cost": usage.get("cost") or usage.get("total_cost"),
+                }
+            )
+            return data
+
+    except httpx.HTTPStatusError as exc:
+        duration_ms = int((time.monotonic() - t0) * 1000)
+        try:
+            err_detail = exc.response.json()
+        except Exception:
+            err_detail = exc.response.text
+
+        record_llm_usage(
+            {
+                "trace_id": ctx.trace_id,
+                "root_source": ctx.root_source,
+                "component": ctx.component,
+                "agent_name": ctx.agent_name,
+                "purpose": ctx.purpose,
+                "span_id": span_id,
+                "parent_span_id": parent_span_id,
+                "model": model,
+                "duration_ms": duration_ms,
+                "status": "error",
+                "http_status": exc.response.status_code,
+                "error": err_detail,
+            }
+        )
+        _handle_response_error(exc)
+
+    except httpx.HTTPError as exc:
+        duration_ms = int((time.monotonic() - t0) * 1000)
+        record_llm_usage(
+            {
+                "trace_id": ctx.trace_id,
+                "root_source": ctx.root_source,
+                "component": ctx.component,
+                "agent_name": ctx.agent_name,
+                "purpose": ctx.purpose,
+                "span_id": span_id,
+                "parent_span_id": parent_span_id,
+                "model": model,
+                "duration_ms": duration_ms,
+                "status": "error",
+                "http_status": None,
+                "error": str(exc),
+            }
+        )
+        raise OpenRouterError(f"OpenRouter request failed: {exc}") from exc
 
 
 __all__ = ["OpenRouterError", "request_chat_completion", "OpenRouterBaseURL"]
