@@ -2,7 +2,7 @@ from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 
 from ..models import ChatHistoryClearResponse, ChatHistoryResponse, ChatRequest
-from ..services import get_conversation_log, get_trigger_service, handle_chat_request
+from ..services import get_conversation_log, get_trigger_service, handle_chat_request, get_memory_index
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
@@ -29,7 +29,10 @@ def clear_history() -> ChatHistoryClearResponse:
         get_agent_roster,
         get_execution_agent_metadata,
         get_execution_agent_lru_cache,
-        get_agent_semantic_search
+        get_agent_semantic_search,
+        get_memory_index,
+        get_memory_unit_store,
+        get_user_state_store,
     )
 
     # Clear conversation log
@@ -59,6 +62,18 @@ def clear_history() -> ChatHistoryClearResponse:
     # Clear FAISS index
     semantic_search = get_agent_semantic_search()
     semantic_search.clear()
+
+    # Clear memory unit index
+    memory_index = get_memory_index()
+    memory_index.clear()
+
+    # Clear memory unit store
+    memory_unit_store = get_memory_unit_store()
+    memory_unit_store.clear_all()
+
+    # Clear user state store
+    user_state_store = get_user_state_store()
+    user_state_store.clear()
 
     return ChatHistoryClearResponse()
 

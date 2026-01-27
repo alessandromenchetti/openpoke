@@ -76,6 +76,18 @@ class MemorySemanticIndex:
             results.append((int(_id), float(score)))
         return results
 
+    def clear(self) -> None:
+        try:
+            with self._lock:
+                self._index = self._new_index()
+                if self._index_path.exists():
+                    self._index_path.unlink()
+
+            logger.info(f"Cleared memory unit index.")
+
+        except Exception as e:
+            logger.error(f"Failed to clear memory unit index: {e}")
+
 
 _index: Optional[MemorySemanticIndex] = None
 _index_lock = threading.Lock()

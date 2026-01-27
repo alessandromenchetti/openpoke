@@ -8,6 +8,7 @@ This is intentionally lightweight:
 from .state_store import UserStateStore, get_user_state_store
 from .retriever import MemoryRetriever, get_memory_retriever
 from .unit_store import MemoryUnitStore, get_memory_unit_store
+from .index import MemorySemanticIndex, get_memory_index
 
 __all__ = [
     "UserStateStore",
@@ -16,4 +17,6 @@ __all__ = [
     "get_memory_unit_store",
     "MemoryRetriever",
     "get_memory_retriever",
+    "MemorySemanticIndex",
+    "get_memory_index",
 ]

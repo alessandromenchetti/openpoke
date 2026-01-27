@@ -156,6 +156,18 @@ class MemoryUnitStore:
                 con.close()
         return self.get_units([int(r["id"]) for r in rows])
 
+    def clear_all(self) -> None:
+        with self._lock:
+            con = self._connect()
+            try:
+                con.execute("DELETE FROM memory_units")
+                con.commit()
+                logger.info("Cleared all memory units from store.")
+            except Exception as e:
+                logger.error(f"Failed to clear memory units: {e}")
+            finally:
+                con.close()
+
 
 _store: Optional[MemoryUnitStore] = None
 _store_lock = threading.Lock()

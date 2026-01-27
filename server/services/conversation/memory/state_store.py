@@ -60,6 +60,17 @@ class UserStateStore:
                     except Exception:
                         pass
 
+    def clear(self) -> None:
+        try:
+            with self._lock:
+                if self._path.exists():
+                    self._path.unlink()
+
+                logger.info("User state cleared.")
+
+        except Exception as e:
+            logger.error(f"Failed to clear user state: {e}")
+
 
 _store: Optional[UserStateStore] = None
 _store_lock = threading.Lock()
