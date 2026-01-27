@@ -30,6 +30,7 @@ class UserState:
     open_loops: List[Dict[str, Any]] = field(default_factory=list)
     commitments: List[Dict[str, Any]] = field(default_factory=list)
     entities: List[Dict[str, Any]] = field(default_factory=list)  # [{canonical,type,aliases[]}]
+    last_state_update_index: int = -1
     updated_at: Optional[str] = None
 
     @staticmethod
@@ -42,6 +43,7 @@ class UserState:
             "open_loops": self.open_loops,
             "commitments": self.commitments,
             "entities": self.entities,
+            "last_state_update_index": self.last_state_update_index,
             "updated_at": self.updated_at,
         }
 
@@ -52,5 +54,10 @@ class UserState:
             open_loops=[d for d in (data.get("open_loops") or []) if isinstance(d, dict)],
             commitments=[d for d in (data.get("commitments") or []) if isinstance(d, dict)],
             entities=[d for d in (data.get("entities") or []) if isinstance(d, dict)],
+            last_state_update_index=(
+                data.get("last_state_update_index")
+                if isinstance(data.get("last_state_update_index"), int)
+                else -1
+            ),
             updated_at=data.get("updated_at") if isinstance(data.get("updated_at"), str) else None,
         )

@@ -12,38 +12,55 @@ from .models import UserState
 
 
 @dataclass(frozen=True)
-class MemoryExtractionResult:
-    user_state: UserState
+class MemoryUnitExtractionResult:
+    """Output of summarization-time memory unit extraction."""
     memory_units: List[Dict[str, Any]]
 
 
 _SYSTEM_PROMPT = """
-You are an AI assistant's long-term memory curator.
+You are an AI assistant's long-term memory UNIT extractor.
 
-Your job is to (1) maintain a small, durable user_state JSON and (2) emit a few atomic memory_units
-based ONLY on the provided state + new logs.
+You will be given:
+- timezone_name: the user's timezone name (e.g., America/Toronto)
+- conversation_summary: existing running summary (may be empty)
+- new_logs: a batch of log lines that are about to be compressed (each line includes a timestamp)
 
-Output MUST be a single JSON object with keys:
-- "user_state": object
-- "memory_units": array of objects
+Your job is to emit a small set of atomic memory_units capturing durable, reusable information.
 
-user_state schema (keep small):
+Output MUST be a single JSON object with a single key:
 {
-  "profile": [string ...],
-  "open_loops": [{"text": string, "entities": [string], "status": "open|done"?} ...],
-  "commitments": [{"text": string, "entities": [string], "due_at": string?} ...],
-  "entities": [{"canonical": string, "type": "person|org|project|id|unknown", "aliases": [string ...]} ...]
+  "memory_units": [
+     {"text": string, "unit_type": string, "entities": [string ...], "confidence": number}
+  ]
 }
 
-Rules:
-- Do NOT invent facts.
-- Prefer stable, durable items (preferences, recurring details, important commitments, identifiers).
-- Remove obsolete/completed items when the new logs clearly indicate completion.
-- Entities: include full names/emails/IDs where available. Add aliases for shortened forms.
-- memory_units: 0-8 items. Each item:
-  {"text": string, "unit_type": string, "entities": [string], "confidence": 0.0-1.0}
-  Use unit_type from: preference, decision, commitment, fact, config, other.
-  Keep text short but specific.
+Constraints:
+- memory_units must be 0 to 8 items.
+- unit_type must be one of: preference, decision, commitment, fact, config, other.
+- confidence must be between 0.0 and 1.0.
+
+Hard rules:
+1) DO NOT invent facts. Use only what is supported by new_logs.
+2) Prefer durable items that help future behavior:
+   - explicit user preferences ("I prefer…")
+   - stable identifiers and facts (name, timezone, key people)
+   - confirmed decisions and confirmed commitments (not tentative)
+   - important constraints or conventions
+3) Avoid duplicating what the trigger/reminder system already tracks.
+   - If logs show a reminder trigger was created for an event, do NOT store a memory unit that simply restates the reminder.
+4) TIME NORMALIZATION (very important):
+   - You MUST NOT write relative time words in memory_units text ("tomorrow", "today", "tonight", "next week").
+   - Convert time references to ABSOLUTE dates/times using the timestamp on the relevant log line(s) as the reference point.
+   - Use timezone_name for interpretation.
+   - If you cannot confidently resolve an absolute time/date, OMIT the time rather than guessing.
+   Examples:
+     BAD: "Dinner with Ryan tomorrow at 7"
+     GOOD: "Dinner with Ryan on 2026-01-27 at 19:00 (America/Toronto)"
+5) Keep unit text short but specific (one sentence).
+6) Entities should be specific strings (full names/emails/IDs where possible) and only if clearly supported.
+
+Return valid JSON only. No markdown.
+
 """.strip()
 
 
@@ -54,9 +71,9 @@ def _format_entries(entries: List[LogEntry]) -> str:
         payload = (e.payload or "").strip()
         idx = e.index if e.index >= 0 else "?"
         if payload:
-            lines.append(f"[{idx}] {label}: {payload}")
+            lines.append(f"[{idx}] {e.timestamp} {label}: {payload}")
         else:
-            lines.append(f"[{idx}] {label}: (empty)")
+            lines.append(f"[{idx}] {e.timestamp} {label}: (empty)")
     return "\n".join(lines) if lines else "(no new logs)"
 
 
@@ -73,17 +90,18 @@ def _extract_json_object(text: str) -> Optional[Dict[str, Any]]:
     return obj if isinstance(obj, dict) else None
 
 
-async def extract_long_term_memory(
-    previous_state: UserState,
+async def extract_memory_units(
+    *,
     previous_summary: str,
     new_entries: List[LogEntry],
-) -> MemoryExtractionResult:
+    timezone_name: str,
+) -> MemoryUnitExtractionResult:
     settings = get_settings()
 
     content = {
-        "previous_user_state": previous_state.to_dict(),
-        "previous_conversation_summary": (previous_summary or "").strip() or "None",
+        "conversation_summary": (previous_summary or "").strip() or "None",
         "new_logs": _format_entries(new_entries),
+        "timezone_name": timezone_name,
     }
 
     messages = [{"role": "user", "content": json.dumps(content, ensure_ascii=False, indent=2)}]
@@ -103,16 +121,12 @@ async def extract_long_term_memory(
     if not obj:
         raise RuntimeError("Failed to parse memory extraction JSON")
 
-    state_obj = obj.get("user_state")
     units_obj = obj.get("memory_units")
-    if not isinstance(state_obj, dict):
-        state_obj = {}
     if not isinstance(units_obj, list):
         units_obj = []
 
-    user_state = UserState.from_dict(state_obj)
     memory_units: List[Dict[str, Any]] = [u for u in units_obj if isinstance(u, dict)]
-    return MemoryExtractionResult(user_state=user_state, memory_units=memory_units)
+    return MemoryUnitExtractionResult(memory_units=memory_units)
 
 
-__all__ = ["MemoryExtractionResult", "extract_long_term_memory"]
+__all__ = ["MemoryUnitExtractionResult", "extract_memory_units"]

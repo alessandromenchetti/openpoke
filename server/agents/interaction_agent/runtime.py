@@ -11,6 +11,7 @@ from ...services.conversation import get_conversation_log, get_working_memory_lo
 from ...openrouter_client import request_chat_completion
 from ...logging_config import logger
 from ...services.telemetry import bind_span_context
+from ...utils.timezones import get_user_timezone_name
 
 
 @dataclass
@@ -95,6 +96,16 @@ class InteractionAgentRuntime:
             if final_response and not summary.user_messages:
                 self.conversation_log.record_reply(final_response)
 
+            try:
+                from ...services.conversation.memory.profile_updater import update_user_profile_after_turn
+
+                await update_user_profile_after_turn(
+                    conversation_log=self.conversation_log,
+                    timezone_name=get_user_timezone_name("UTC"),
+                )
+            except Exception as exc:
+                logger.warning("user profile update skipped", extra={"error": str(exc)})
+
             return InteractionResult(
                 success=True,
                 response=final_response,
@@ -137,6 +148,16 @@ class InteractionAgentRuntime:
 
             if final_response and not summary.user_messages:
                 self.conversation_log.record_reply(final_response)
+
+            try:
+                from ...services.conversation.memory.profile_updater import update_user_profile_after_turn
+
+                await update_user_profile_after_turn(
+                    conversation_log=self.conversation_log,
+                    timezone_name=get_user_timezone_name("UTC"),
+                )
+            except Exception as exc:
+                logger.warning("user profile update skipped", extra={"error": str(exc)})
 
             return InteractionResult(
                 success=True,
