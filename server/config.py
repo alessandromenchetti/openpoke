@@ -75,8 +75,8 @@ class Settings(BaseModel):
     docs_url: Optional[str] = Field(default=os.getenv("OPENPOKE_DOCS_URL", "/docs"))
 
     # Summarisation controls
-    conversation_summary_threshold: int = Field(default=100)
-    conversation_summary_tail_size: int = Field(default=10)
+    conversation_summary_threshold: int = Field(default=25)
+    conversation_summary_tail_size: int = Field(default=12)
 
     @property
     def cors_allow_origins(self) -> List[str]:

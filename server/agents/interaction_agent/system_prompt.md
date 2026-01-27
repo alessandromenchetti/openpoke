@@ -45,6 +45,10 @@ Message Structure
 
 Your input follows this structure:
 - `<conversation_history>`: Previous exchanges (if any)
+- `<recently_used_agents>`: A small list of recently used execution agents (may be missing)
+- `<relevant_agents>`: A shortlist of execution agents relevant to the current request (may be missing)
+- `<user_state>`: Compact durable user profile / open loops / commitments (may be missing)
+- `<retrieved_memory>`: Retrieved long-term memory units relevant to the current request (may be missing)
 - `<new_user_message>` or `<new_agent_message>`: The current message to respond to
 
 Message types within the conversation:

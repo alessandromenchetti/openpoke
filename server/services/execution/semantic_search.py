@@ -14,54 +14,102 @@ _DATA_DIR = Path(__file__).resolve().parent.parent.parent / "data"
 _EMBEDDINGS_DIR = _DATA_DIR / "execution_agents" / "embeddings"
 
 
-async def decompose_user_query(user_query: str, conversation_history: str) -> List[str]:
-    """Use LLM to decompose user query into search query(ies)."""
+def _extract_first_json_array(text: str):
+    in_str = False
+    esc = False
+    depth = 0
+    start = None
+
+    for i, ch in enumerate(text):
+        if start is None:
+            if ch == "[":
+                start = i
+                depth = 1
+            continue
+
+        # Inside JSON candidate
+        if in_str:
+            if esc:
+                esc = False
+            elif ch == "\\":
+                esc = True
+            elif ch == '"':
+                in_str = False
+        else:
+            if ch == '"':
+                in_str = True
+            elif ch == "[":
+                depth += 1
+            elif ch == "]":
+                depth -= 1
+                if depth == 0:
+                    return text[start : i + 1]
+
+    return None
+
+
+async def decompose_user_query(user_query: str, conversation_history: str) -> List[Dict[str, object]]:
+    """Use LLM to decompose user query into search query(ies).
+
+    ### NEW ###
+    Returns a list of objects:
+    [{"query": str, "entities": [str, ...]}, ...]
+    """
     import re
     from ...config import get_settings
     from ...openrouter_client import request_chat_completion
 
     settings = get_settings()
 
+    def _truncate(s: str, n: int = 220) -> str:  # NEW
+        s = (s or "").replace("\n", " ").strip()
+        return s if len(s) <= n else (s[: n - 3] + "...")
+
     system_prompt = """
-    You are an expert at decomposing user requests into semantic search queries for finding relevant agents.
+    You are an expert at decomposing user requests into semantic search queries.
 
     Given the a new user request with a snippet of conversation history as context, extract distinct intents or targets
     from the user request that should be searched for separately.
 
     Rules:
-    - Each query should focus on ONE specific intent, person, or action
+    - Each item should focus on ONE specific intent, person, or action
     - Resolve pronouns using conversation history (e.g., "she" → "alice")
-    - If you cannot resolve a pronoun, focus on the intent/action instead (e.g., "has she replied?" → "email reply check")
-    - Keep queries focused and specific for semantic search
-    - Return ONLY a JSON array of query strings
-    - If the query has only one intent, return a single-element array
+    - If you cannot resolve a pronoun, omit entities and focus on the intent/action
+    - Keep queries focused and specific
+    - Return ONLY a JSON array of objects with keys: "query" and "entities"
+    - "entities" must be a JSON array of strings (often empty; ideally <= 1 entity)
+    - Prefer full names or email addresses when available in context
 
     Output format:
-    ["query1", "query2", ...]
+    [{"query": "...", "entities": ["..."]}, ...]
 
     Examples:
     Input: "send email to bob and alice"
-    Output: ["send email to bob", "send email to alice"]
+    Output: [{"query":"send email to bob","entities":["bob"]},{"query":"send email to alice","entities":["alice"]}]
 
     Input: "has she replied?" (with history mentioning Alice)
-    Output: ["alice email reply"]
+    Output: [{"query":"alice email reply","entities":["alice"]}]
 
     Input: "has she replied?" (no clear referent in history)
-    Output: ["email reply check"]
+    Output: [{"query":"email reply check","entities":[]}]
 
     Input: "check for grade email and remind me in 10 minutes"
-    Output: ["check grade email", "reminder in 10 minutes"]
+    Output: [{"query":"check grade email","entities":[]},{"query":"reminder in 10 minutes","entities":[]}]
 
     Input: "what about ryan or vince?" (with previous message in context saying something like "has alice replied?")
-    Output: ["ryan email reply", "vince email reply"]
+    Output: [{"query":"ryan email reply","entities":["ryan"]},{"query":"vince email reply","entities":["vince"]}]
 
     Input: "search my emails"
-    Output: ["search emails"]"""
+    Output: [{"query":"search emails","entities":[]}]""".strip()
 
     history_lines = conversation_history.strip().split("\n")
     filtered_lines = [line for line in history_lines if line.strip() and not line.startswith("<agent_message")]
 
     recent_history = "\n".join(filtered_lines[-10:]) if filtered_lines else "None"
+
+    logger.info(
+        f"[DECOMP] starting | user_query={_truncate(user_query, 140)} | recent_history_excerpt={_truncate(recent_history, 200)}"
+    )  # NEW
 
     messages = [
         {
@@ -75,7 +123,7 @@ async def decompose_user_query(user_query: str, conversation_history: str) -> Li
                 {user_query}
                 </user_query>
 
-                Decompose into semantic search queries (JSON array only):"""
+                Decompose into semantic search queries (JSON array only):""".strip()
         }
     ]
 
@@ -89,19 +137,38 @@ async def decompose_user_query(user_query: str, conversation_history: str) -> Li
 
         content = response["choices"][0]["message"]["content"].strip()
 
-        match = re.search(r'\[.*?\]', content, re.DOTALL)
-        if match:
-            queries = json.loads(match.group(0))
-            if isinstance(queries, list) and queries:
-                logger.debug(f"Decomposed '{user_query}' into {len(queries)} queries: {queries}")
-                return queries
+        logger.info(f"[DECOMP] raw model output excerpt: {_truncate(content, 240)}")  # NEW
 
-        logger.warning(f"Failed to parse decomposed queries, using original: {content}")
-        return [user_query]
+        arr_text = _extract_first_json_array(content)
+        if arr_text:
+            items = json.loads(arr_text)
+            if isinstance(items, list) and items:
+                normalized: List[Dict[str, object]] = []
+                for item in items:
+                    if isinstance(item, str):
+                        normalized.append({"query": item, "entities": []})
+                        continue
+                    if not isinstance(item, dict):
+                        continue
+                    q = item.get("query")
+                    ents = item.get("entities")
+                    if isinstance(q, str) and q.strip():
+                        if isinstance(ents, list):
+                            entities = [e for e in ents if isinstance(e, str) and e.strip()]
+                        else:
+                            entities = []
+                        normalized.append({"query": q.strip(), "entities": entities})
+
+                if normalized:
+                    logger.info(f"[DECOMP] parsed items: {normalized}")  # NEW
+                    return normalized
+
+        logger.warning(f"[DECOMP] parse failed; fallback to original | excerpt={_truncate(content, 240)}")  # NEW
+        return [{"query": user_query, "entities": []}]
 
     except Exception as e:
-        logger.warning(f"Query decomposition failed: {e}, using original query")
-        return [user_query]
+        logger.warning(f"[DECOMP] exception; fallback to original | error={e}", exc_info=True)  # NEW
+        return [{"query": user_query, "entities": []}]
 
 
 class AgentSemanticSearch:
