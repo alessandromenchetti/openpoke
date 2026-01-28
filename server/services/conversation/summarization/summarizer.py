@@ -9,6 +9,7 @@ from ....openrouter_client import OpenRouterError, request_chat_completion
 from .prompt_builder import SummaryPrompt, build_summarization_prompt
 from .state import LogEntry, SummaryState
 from .working_memory_log import get_working_memory_log
+from ...telemetry.trace_context import bind_span_context
 
 if TYPE_CHECKING:  # pragma: no cover - type checking only
     from ..log import ConversationLog
@@ -109,6 +110,57 @@ async def summarize_conversation() -> bool:
 
     summary_text = await _call_openrouter(prompt, settings.summarizer_model, settings.openrouter_api_key)
     summary_body = summary_text if summary_text else state.summary_text
+
+    try:
+        from ..memory import get_memory_unit_store, get_user_state_store
+        from ..memory.extractor import extract_memory_units
+        from ..memory.index import get_memory_index
+        from ....utils.timezones import get_user_timezone_name
+
+        tz_name = get_user_timezone_name("UTC")
+
+        with bind_span_context(
+            component="conversation_summarization",
+            purpose="memory_extraction",
+        ):
+            extraction = await extract_memory_units(
+                previous_summary=state.summary_text,
+                new_entries=batch,
+                timezone_name=tz_name,
+            )
+
+        mem_store = get_memory_unit_store()
+        mem_index = get_memory_index()
+        new_ids = []
+        new_texts = []
+        for mu in extraction.memory_units:
+            if not isinstance(mu, dict):
+                continue
+            text = mu.get("text")
+            if not isinstance(text, str) or not text.strip():
+                continue
+            unit_type = mu.get("unit_type")
+            if not isinstance(unit_type, str) or not unit_type.strip():
+                unit_type = "fact"
+            ents = mu.get("entities")
+            entities = [e for e in (ents or []) if isinstance(e, str) and e.strip()]
+            conf = mu.get("confidence")
+            confidence = float(conf) if isinstance(conf, (int, float)) else 0.7
+
+            new_id = mem_store.add_unit(
+                text=text.strip(),
+                unit_type=unit_type.strip(),
+                entities=entities,
+                confidence=confidence,
+            )
+            if new_id is not None:
+                new_ids.append(new_id)
+                new_texts.append(text.strip())
+
+        if new_ids:
+            mem_index.add(new_ids, new_texts)
+    except Exception as exc:
+        logger.warning("long-term memory update failed", extra={"error": str(exc)})
 
     refreshed_entries = _collect_entries(conversation_log)
     remaining_entries = [entry for entry in refreshed_entries if entry.index > cutoff_index]

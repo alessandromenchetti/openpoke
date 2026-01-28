@@ -7,6 +7,14 @@ from .conversation import (
     get_working_memory_log,
     schedule_summarization,
 )
+from .conversation.memory import (
+    MemorySemanticIndex,
+    MemoryUnitStore,
+    UserStateStore,
+    get_memory_index,
+    get_memory_unit_store,
+    get_user_state_store
+)
 from .conversation.chat_handler import handle_chat_request
 from .execution import (
     AgentRoster,
@@ -43,6 +51,12 @@ __all__ = [
     "get_conversation_log",
     "get_working_memory_log",
     "schedule_summarization",
+    "MemorySemanticIndex",
+    "get_memory_index",
+    "MemoryUnitStore",
+    "get_memory_unit_store",
+    "UserStateStore",
+    "get_user_state_store",
     "AgentRoster",
     "ExecutionAgentLogStore",
     "ExecutionAgentMetadataStore",

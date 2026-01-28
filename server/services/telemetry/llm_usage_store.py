@@ -137,6 +137,9 @@ class LLMUsageStore:
         return row
 
 
+    # TODO: Add clear method for when user wants to clear all data
+
+
 _llm_usage_store = LLMUsageStore(_LLM_USAGE_DB_PATH)
 
 

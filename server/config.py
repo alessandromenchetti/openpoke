@@ -63,6 +63,7 @@ class Settings(BaseModel):
     execution_agent_search_model: str = Field(default="anthropic/claude-sonnet-4")
     summarizer_model: str = Field(default="anthropic/claude-sonnet-4")
     email_classifier_model: str = Field(default="anthropic/claude-sonnet-4")
+    user_state_updater_model: str = Field(default="anthropic/claude-sonnet-4")
 
     # Credentials / integrations
     openrouter_api_key: Optional[str] = Field(default=os.getenv("OPENROUTER_API_KEY"))
@@ -75,8 +76,15 @@ class Settings(BaseModel):
     docs_url: Optional[str] = Field(default=os.getenv("OPENPOKE_DOCS_URL", "/docs"))
 
     # Summarisation controls
-    conversation_summary_threshold: int = Field(default=100)
-    conversation_summary_tail_size: int = Field(default=10)
+    conversation_summary_threshold: int = Field(default=25)
+    conversation_summary_tail_size: int = Field(default=12)
+
+    # User state size controls
+    user_state_update_max_entries: int = Field(default=80)
+    user_state_profile_max_items: int = Field(default=12)
+    user_state_open_loops_max_items: int = Field(default=8)
+    user_state_commitments_max_items: int = Field(default=8)
+    user_state_entities_max_items: int = Field(default=24)
 
     @property
     def cors_allow_origins(self) -> List[str]:
