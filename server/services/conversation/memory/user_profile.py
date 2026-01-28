@@ -47,7 +47,8 @@ USER_STATE schema (keep SMALL):
   ],
   "commitments": [
     {"text": string, "entities": [string ...], "due_at": string?}
-  ]
+  ],
+  "entities": [string ...]
 }
 
 HARD RULES (must follow):
@@ -68,7 +69,7 @@ HARD RULES (must follow):
    Example trigger evidence:
    "[SUCCESS] Reminder Agent: ... created a reminder trigger ... assigned ID ..."
 6) ENTITIES:
-   - The "entities" list should contain only entities that appear in ACTIVE open_loops/commitments.
+   - The "entities" list should contain commonly mentioned entities and entities relevant to the open loops or commitments.
    - If an open_loop/commitment is removed, entities tied only to it should disappear too (you may omit entities entirely and let code rebuild).
 7) LIMITS:
    - You MUST obey limits.profile_max, limits.open_loops_max, limits.commitments_max.

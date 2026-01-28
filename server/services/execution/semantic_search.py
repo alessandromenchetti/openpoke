@@ -75,7 +75,7 @@ async def decompose_user_query(user_query: str, conversation_history: str) -> Li
     - Each item should focus on ONE specific intent, person, or action
     - Resolve pronouns using conversation history (e.g., "she" → "alice")
     - If you cannot resolve a pronoun, omit entities and focus on the intent/action
-    - Resolve any temporal references (e.g., "tomorrow" → specific date) using timestamps in the conversation history
+    - Resolve any temporal references (e.g., "tomorrow 8pm" → specific date at 8pm) using timestamps in the conversation history
     - Keep queries focused and specific
     - Return ONLY a JSON array of objects with keys: "query" and "entities"
     - "entities" must be a JSON array of strings (often empty; ideally <= 1 entity)

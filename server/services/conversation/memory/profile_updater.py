@@ -61,7 +61,6 @@ async def update_user_profile_after_turn(
     store = get_user_state_store()
     previous = store.load_state()
 
-    # IMPORTANT: your UserState should persist this in to_dict/from_dict.
     last_idx = int(getattr(previous, "last_state_update_index", -1))
 
     all_entries = _collect_entries(conversation_log)

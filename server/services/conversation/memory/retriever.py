@@ -61,6 +61,7 @@ class MemoryRetriever:
             q_ents = [e for e in (query_entities or []) if isinstance(e, str) and e.strip()]
 
             per_q: List[MemoryUnit] = []
+            # First pass: try to filter by entities if any.
             for _id, _score in hits:
                 u = units_by_id.get(_id)
                 if not u:
@@ -73,6 +74,7 @@ class MemoryRetriever:
                 if len(per_q) >= self.settings.top_k_per_query:
                     break
 
+            # Second pass: if too few after entity filtering, relax constraint.
             if q_ents and len(per_q) < self.settings.min_after_filter:
                 per_q = []
                 for _id, _score in hits:
@@ -82,6 +84,7 @@ class MemoryRetriever:
                     if len(per_q) >= self.settings.top_k_per_query:
                         break
 
+            # Add to final, deduping across queries.
             for u in per_q[: self.settings.top_k_per_query]:
                 if u.id not in {x.id for x in final}:
                     final.append(u)
